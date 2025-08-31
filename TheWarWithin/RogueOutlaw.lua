@@ -623,7 +623,7 @@ spec:RegisterCombatLogEvent( function( _, subtype, _,  sourceGUID, sourceName, _
         end
 
         if spellID == 193315 or spellID == 8676 then -- Sinister Strike (193315) or Ambush (8676) consumes 1 Disorienting Strike stack.
-            disorientStacks = disorientStacks - 1
+            disorientStacks = max( 0, disorientStacks - 1 )
             return
         end
 
@@ -643,12 +643,19 @@ spec:RegisterCombatLogEvent( function( _, subtype, _,  sourceGUID, sourceName, _
 
     -- SPELL_DAMAGE
     if subtype == "SPELL_DAMAGE" then
+
         local now = GetTime()
-        if spellID == 441144 then  -- Unseen Blade damage event.
-            if disorientStacks < 0 then
+        if spellID == 441144 then      -- Unseen Blade damage event
+            -- If this proc was NOT triggered by a Disorienting Strikes bypass,
+            -- refresh the 20-second ICD anchor.
+            if not bypassPending then
                 lastUnseenBlade = now
             end
+
+            -- Clear the one-shot flag for the next proc (natural or bypass).
+            bypassPending = false
         end
+
         return
     end
 
@@ -683,23 +690,31 @@ spec:RegisterStateExpr( "unseen_blades_available", function ()
     return count
 end )
 
-local TriggerUnseenBlade = setfenv( function( )
-    if unseen_blades_available > 0 then
-        -- Handle ICD vs bypass
-        if disorient_stacks > 0 then
-            disorient_stacks = disorient_stacks - 1
+local TriggerUnseenBlade = setfenv( function()
+
+    -- Cache the computed value; never write back to the key itself.
+    local ubAvailable = unseen_blades_available
+
+    if ubAvailable > 0 then
+        if disorientStacks > 0 then
+            disorientStacks = disorientStacks - 1
+            bypassPending  = true
         else
-            last_unseen_blade = query_time
+            lastUnseenBlade = query_time
             applyDebuff( "player", "unseen_blade" )
         end
 
         if buff.escalating_blade.stack < 4 then
             addStack( "escalating_blade" )
-            if buff.escalating_blade.stack == 4 then applyBuff( "coup_de_grace" ) end
+            if buff.escalating_blade.stack == 4 then
+                applyBuff( "coup_de_grace" )
+            end
         end
+
         applyDebuff( "target", "fazed" )
-        unseen_blades_available = unseen_blades_available - 1
+        -- No write-back to unseen_blades_available here.
     end
+
 end, state )
 
 spec:RegisterStateExpr( "rtb_primary_remains", function ()
@@ -934,9 +949,9 @@ spec:RegisterHook( "reset_precast", function()
 
     if talent.unseen_blade.enabled then
 
-        -- Resync with real-data local variables first
-        last_unseen_blade = nil
-        disorient_stacks = nil
+        -- Remove force-resync with real-data local variables first
+        -- last_unseen_blade = nil
+        -- disorient_stacks = nil
 
         -- Sync unseen blade ICD with gamestate
         local unseenBladeCD = 20 - ( query_time - last_unseen_blade )
