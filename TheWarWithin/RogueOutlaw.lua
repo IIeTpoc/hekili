@@ -573,6 +573,7 @@ end )
 
 local lastShot, numShots = 0, 0
 local lastUnseenBlade, disorientStacks = 0, 0
+local bypassPending = false
 local lastRoll = 0
 local rollDuration = 30
 local rtbApplicators = {
