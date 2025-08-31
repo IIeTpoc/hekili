@@ -693,29 +693,29 @@ end )
 
 local TriggerUnseenBlade = setfenv( function()
 
-    -- Snapshot expression values (read-only).
-    local ubAvailable = unseen_blades_available      -- total UB/DS charges
-    local dsAvailable = disorient_stacks             -- current DS bypasses
+    -- read-only snapshots of the state expressions
+    local ubAvailable = unseen_blades_available
+    local dsAvailable = disorient_stacks          -- expression, not the global
 
-    if ubAvailable > 0 then
-        if dsAvailable > 0 then                      -- consume a DS bypass
-            _G.disorientStacks = _G.disorientStacks - 1
-            bypassPending      = true                -- flag next UB as bypass
-        else                                         -- natural UB proc
-            _G.lastUnseenBlade = query_time          -- start the 20-s ICD
-            applyDebuff( "player", "unseen_blade" )
-        end
+    if ubAvailable == 0 then return end           -- nothing to fire
 
-        -- Build/refresh Escalating Blade and award Coup de Grâce at 4 stacks.
-        if buff.escalating_blade.stack < 4 then
-            addStack( "escalating_blade" )
-            if buff.escalating_blade.stack == 4 then
-                applyBuff( "coup_de_grace" )
-            end
-        end
-
-        applyDebuff( "target", "fazed" )             -- shared on every proc
+    if dsAvailable > 0 then                       -- Disorienting-Strikes bypass
+        _G.disorientStacks = max( 0, _G.disorientStacks - 1 )
+        bypassPending      = true                 -- flag next UB as bypass
+    else                                          -- natural auto-attack proc
+        _G.lastUnseenBlade = query_time           -- start 20-s ICD
+        applyDebuff( "player", "unseen_blade" )
     end
+
+    -- build Escalating Blade stacks and grant Coup de Grâce at 4
+    if buff.escalating_blade.stack < 4 then
+        addStack( "escalating_blade" )
+        if buff.escalating_blade.stack == 4 then
+            applyBuff( "coup_de_grace" )
+        end
+    end
+
+    applyDebuff( "target", "fazed" )
 
 end, state )
 
