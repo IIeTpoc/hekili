@@ -573,7 +573,6 @@ end )
 
 local lastShot, numShots = 0, 0
 local lastUnseenBlade, disorientStacks = 0, 0
-local bypassPending = false
 local lastRoll = 0
 local rollDuration = 30
 local rtbApplicators = {
@@ -693,29 +692,28 @@ end )
 
 local TriggerUnseenBlade = setfenv( function()
 
-    -- read-only snapshots of the state expressions
+    -- Cache the computed value; never write back to the key itself.
     local ubAvailable = unseen_blades_available
-    local dsAvailable = disorient_stacks          -- expression, not the global
 
-    if ubAvailable == 0 then return end           -- nothing to fire
-
-    if dsAvailable > 0 then                       -- Disorienting-Strikes bypass
-        _G.disorientStacks = max( 0, _G.disorientStacks - 1 )
-        bypassPending      = true                 -- flag next UB as bypass
-    else                                          -- natural auto-attack proc
-        _G.lastUnseenBlade = query_time           -- start 20-s ICD
-        applyDebuff( "player", "unseen_blade" )
-    end
-
-    -- build Escalating Blade stacks and grant Coup de Grâce at 4
-    if buff.escalating_blade.stack < 4 then
-        addStack( "escalating_blade" )
-        if buff.escalating_blade.stack == 4 then
-            applyBuff( "coup_de_grace" )
+    if ubAvailable > 0 then
+        if disorientStacks > 0 then
+            disorientStacks = disorientStacks - 1
+            bypassPending  = true
+        else
+            lastUnseenBlade = query_time
+            applyDebuff( "player", "unseen_blade" )
         end
-    end
 
-    applyDebuff( "target", "fazed" )
+        if buff.escalating_blade.stack < 4 then
+            addStack( "escalating_blade" )
+            if buff.escalating_blade.stack == 4 then
+                applyBuff( "coup_de_grace" )
+            end
+        end
+
+        applyDebuff( "target", "fazed" )
+        -- No write-back to unseen_blades_available here.
+    end
 
 end, state )
 
