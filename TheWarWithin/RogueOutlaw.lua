@@ -572,7 +572,22 @@ spec:RegisterEvent( "UPDATE_STEALTH", function()
 end )
 
 local lastShot, numShots = 0, 0
-local lastUnseenBlade, disorientStacks = 0, 0
+
+--[[-----------------------------------------------------------------------
+  Cross-Environment Counters (spec-local version)
+  These counters are visible in both the live engine and the forecasting
+  sandbox because they are stored on the shared `state` table.
+-------------------------------------------------------------------------]]
+local function RegisterCrossCounter( name, initial )
+    if rawget( state, name ) == nil then
+        rawset( state, name, initial or 0 )
+    end
+end
+
+RegisterCrossCounter( "state.lastUnseenBlade", 0 )   -- 20вЂ‘second ICD anchor
+RegisterCrossCounter( "state.disorientStacks", 0 )   -- Disorienting Strikes stacks
+
+
 local bypassPending = false
 local lastRoll = 0
 local rollDuration = 30
@@ -619,25 +634,25 @@ spec:RegisterCombatLogEvent( function( _, subtype, _,  sourceGUID, sourceName, _
         end
 
         if spellID == 51690 and state.talent.disorienting_strikes.enabled then -- Killing Spree grants 2 stacks of Disorienting Strikes (hidden aura)
-            disorientStacks = 2
+            state.disorientStacks = 2
             Hekili:ForceUpdate( "DISORIENTING_STRIKES", true )
             return
         end
 
         if spellID == 193315 or spellID == 8676 then -- Sinister Strike (193315) or Ambush (8676) consumes 1 Disorienting Strike stack.
-            disorientStacks = max( 0, disorientStacks - 1 )
+            state.disorientStacks = max( 0, state.disorientStacks - 1 )
             Hekili:ForceUpdate( "DISORIENTING_STRIKES", true )
             return
         end
 
         if spellID == 315508 then
-            -- 1. ‑‑ compute pandemic before we overwrite rollDuration
+            -- 1. ?? compute pandemic before we overwrite rollDuration
             local elapsed    = now - lastRoll           -- time since previous roll
             local remaining  = max( 0, rollDuration - elapsed )   -- container time left
             local pandemic   = min( 9, max( 0, remaining ) )
-            -- 2. ‑‑ reset container
-            lastRoll     = now                          -- real start‑time
-            rollDuration = 30 + pandemic                -- 30 s + up‑to‑9 s
+            -- 2. ?? reset container
+            lastRoll     = now                          -- real start?time
+            rollDuration = 30 + pandemic                -- 30?s + up?to?9?s
             return
         end
 
@@ -652,7 +667,7 @@ spec:RegisterCombatLogEvent( function( _, subtype, _,  sourceGUID, sourceName, _
             -- If this proc was NOT triggered by a Disorienting Strikes bypass,
             -- refresh the 20-second ICD anchor.
             if not bypassPending then
-                lastUnseenBlade = now
+                state.lastUnseenBlade = now
             end
 
             -- Clear the one-shot flag for the next proc (natural or bypass).
@@ -674,21 +689,21 @@ spec:RegisterStateExpr( "rtb_buffs", function ()
 end )
 
 spec:RegisterStateExpr( "last_unseen_blade", function ()
-    return lastUnseenBlade
+    return state.lastUnseenBlade
 end )
 
 spec:RegisterStateExpr( "disorient_stacks", function ()
-    return disorientStacks
+    return state.disorientStacks
 end )
 
 spec:RegisterStateExpr( "unseen_blades_available", function ()
     local count = 0
 
     -- add 1 if the ICD is cooled down
-    if state.query_time - lastUnseenBlade >= 20 then count = count + 1 end
+    if state.query_time - state.lastUnseenBlade >= 20 then count = count + 1 end
 
     -- add the # of bypasses that are available
-    if disorientStacks > 0 then count = count + disorientStacks end
+    if state.disorientStacks > 0 then count = count + state.disorientStacks end
 
     return count
 end )
@@ -701,10 +716,10 @@ local TriggerUnseenBlade = setfenv( function()
 
     if ubAvailable > 0 then
         if dsAvailable > 0 then
-            disorientStacks = disorientStacks - 1
+            state.disorientStacks = state.disorientStacks - 1
             bypassPending  = true
         else
-            lastUnseenBlade = query_time
+            state.lastUnseenBlade = query_time
             applyDebuff( "player", "unseen_blade" )
         end
 
@@ -1471,7 +1486,7 @@ spec:RegisterAbilities( {
 
         end,
 
-        -- No tick_time/tick, no finish-refund – resource model does it.
+        -- No tick_time/tick, no finish-refund В– resource model does it.
         start = function ()
             if buff.double_jeopardy.up and combo_points.current > 4 then removeBuff( "double_jeopardy" ) end
 
@@ -1479,7 +1494,7 @@ spec:RegisterAbilities( {
             spend( combo_points.current, "combo_points" )
             removeStack( "supercharged_combo_points" )
             if talent.disorienting_strikes.enabled then
-                disorientStacks = 2
+                state.disorientStacks = 2
             end
             if talent.flawless_form.enabled then addStack( "flawless_form" ) end
         end,
