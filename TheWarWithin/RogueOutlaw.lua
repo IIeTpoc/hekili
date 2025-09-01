@@ -573,6 +573,7 @@ end )
 
 local lastShot, numShots = 0, 0
 local lastUnseenBlade, disorientStacks = 0, 0
+local bypassPending = false
 local lastRoll = 0
 local rollDuration = 30
 local rtbApplicators = {
@@ -694,9 +695,10 @@ local TriggerUnseenBlade = setfenv( function()
 
     -- Cache the computed value; never write back to the key itself.
     local ubAvailable = unseen_blades_available
+    local dsAvailable = disorient_stacks          -- expression, not the global
 
     if ubAvailable > 0 then
-        if disorientStacks > 0 then
+        if dsAvailable > 0 then
             disorientStacks = disorientStacks - 1
             bypassPending  = true
         else
