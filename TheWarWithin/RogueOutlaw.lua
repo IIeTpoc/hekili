@@ -584,8 +584,8 @@ local function RegisterCrossCounter( name, initial )
     end
 end
 
-RegisterCrossCounter( "state.lastUnseenBlade", 0 )   -- 20вЂ‘second ICD anchor
-RegisterCrossCounter( "state.disorientStacks", 0 )   -- Disorienting Strikes stacks
+RegisterCrossCounter( "lastUnseenBlade", 0 )   -- 20вЂ‘second ICD anchor
+RegisterCrossCounter( "disorientStacks", 0 )   -- Disorienting Strikes stacks
 
 
 local bypassPending = false
