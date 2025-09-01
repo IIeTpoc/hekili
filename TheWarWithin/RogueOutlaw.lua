@@ -1477,8 +1477,7 @@ spec:RegisterAbilities( {
             spend( combo_points.current, "combo_points" )
             removeStack( "supercharged_combo_points" )
             if talent.disorienting_strikes.enabled then
-                disorient_stacks = 2
-                unseen_blades_available = unseen_blades_available + 2
+                disorientStacks = 2
             end
             if talent.flawless_form.enabled then addStack( "flawless_form" ) end
         end,
