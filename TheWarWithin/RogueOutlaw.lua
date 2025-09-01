@@ -620,11 +620,13 @@ spec:RegisterCombatLogEvent( function( _, subtype, _,  sourceGUID, sourceName, _
 
         if spellID == 51690 and state.talent.disorienting_strikes.enabled then -- Killing Spree grants 2 stacks of Disorienting Strikes (hidden aura)
             disorientStacks = 2
+            Hekili:ForceUpdate( "DISORIENTING_STRIKES", true )
             return
         end
 
         if spellID == 193315 or spellID == 8676 then -- Sinister Strike (193315) or Ambush (8676) consumes 1 Disorienting Strike stack.
             disorientStacks = max( 0, disorientStacks - 1 )
+            Hekili:ForceUpdate( "DISORIENTING_STRIKES", true )
             return
         end
 
